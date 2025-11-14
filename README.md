@@ -1,10 +1,10 @@
-# Atlantis with AI-Powered Terraform Analysis
+# Atlantis with AI-Powered Terraform Analysis and SSO
 
 🤖 **AI-Enhanced Infrastructure Reviews** | 🌐 **Web UI Access** | 🔒 **Enterprise SSO Integration**
 
-This project extends [Runatlantis.io](https://www.runatlantis.io/) with three powerful capabilities:
+This project extends [Runatlantis.io](https://www.runatlantis.io/) with three capabilities:
 
-1. **🤖 AI-Powered Plan Analysis** - AWS Bedrock Claude integration for intelligent Terraform plan review
+1. **🤖 AI-Powered Plan Analysis** - AWS Bedrock Claude integration for AI Terraform plan review
 2. **🌐 Direct Web Access** - Kubernetes ingress setup eliminating the need for `kubectl port-forward`  
 3. **🔒 SSO Protection** - OAuth2 proxy integration supporting multiple identity providers
 
@@ -244,7 +244,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **[OAuth2 Proxy](https://oauth2-proxy.github.io/oauth2-proxy/)** - Authentication proxy for SSO integration
 
 ---
-
-**Built with ❤️ for the DevOps community**
-
-*Transform your Terraform workflow with AI-powered insights, seamless web access, and enterprise-grade security.*

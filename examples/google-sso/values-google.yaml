@@ -1,0 +1,61 @@
+# Google SSO Configuration for Atlantis
+# This example shows how to configure Atlantis with Google OAuth2
+
+# OAuth2 Proxy configuration for Google
+extraContainers:
+  - name: oauth2-proxy
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    imagePullPolicy: IfNotPresent
+    args:
+      - --provider=google
+      - --http-address=0.0.0.0:4180
+      - --upstream=http://127.0.0.1:4141
+      - --redirect-url=https://atlantis.your-domain.com/oauth2/callback
+      - --email-domain=your-domain.com  # Your G Suite/Google Workspace domain
+      - --scope=openid profile email
+      - --set-authorization-header=true
+      - --pass-user-headers=true
+      - --cookie-secure=true
+      - --cookie-samesite=lax
+      - --whitelist-domain=.your-domain.com
+      - --skip-auth-route=^/(events|healthz|ping)(?:$|/).*
+      # Google specific
+      - --google-admin-email=admin@your-domain.com  # Optional: for group checking
+      - --google-service-account-json=/etc/google/credentials.json  # Optional
+    env:
+      - name: OAUTH2_PROXY_CLIENT_ID
+        valueFrom:
+          secretKeyRef:
+            name: atlantis-oauth2
+            key: google-client-id
+      - name: OAUTH2_PROXY_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: atlantis-oauth2
+            key: google-client-secret
+      - name: OAUTH2_PROXY_COOKIE_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: atlantis-oauth2
+            key: cookie-secret
+    ports:
+      - name: http-oauth2
+        containerPort: 4180
+    volumeMounts:
+      - name: google-credentials
+        mountPath: /etc/google
+        readOnly: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+# Volume for Google service account (optional, for group checking)
+extraVolumes:
+  - name: google-credentials
+    secret:
+      secretName: google-service-account
+      optional: true

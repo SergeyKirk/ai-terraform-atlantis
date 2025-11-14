@@ -1,0 +1,170 @@
+# Atlantis with AI Analysis - Helm Values
+# This configuration sets up Atlantis with:
+# - AI-powered Terraform plan analysis using AWS Bedrock
+# - Web UI access via ingress (no port forwarding needed)
+# - SSO protection using OAuth2 proxy
+
+# Repository configuration - update these values for your setup
+orgAllowlist: github.com/your-org/your-terraform-repo
+# logLevel: "debug"
+
+# GitHub App configuration - create a GitHub App for your organization
+# See: https://docs.runatlantis.io/access-credentials.html#github-app
+githubApp:
+  id: "your-github-app-id"  # Set via environment or secret
+  slug: "your-atlantis-bot"
+  key: |
+    -----BEGIN PRIVATE KEY-----
+    # Your GitHub App private key
+    -----END PRIVATE KEY-----
+  secret: "your-webhook-secret"  # Set via secret management
+
+# Ingress configuration for web UI access
+ingress:
+  enabled: true
+  ingressClassName: nginx  # Adjust for your ingress controller
+  apiVersion: networking.k8s.io/v1
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt  # Adjust for your cert manager
+    # Add any additional annotations for your ingress setup
+  paths:
+    - path: /
+      service: atlantis
+      port: 80
+      pathType: Prefix
+    - path: /events
+      port: 80
+      service: atlantis
+      pathType: ImplementationSpecific
+  host: atlantis.your-domain.com  # Update to your domain
+  tls:
+    - secretName: atlantis-tls
+      hosts:
+        - atlantis.your-domain.com
+  labels: {}
+
+# Service configuration - routes to OAuth2 proxy for SSO
+service:
+  port: 80
+  targetPort: 4180  # OAuth2 proxy port
+
+# Service Account with IAM role for AWS access
+serviceAccount:
+  create: true
+  mount: true
+  name: atlantis
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::YOUR-ACCOUNT:role/AtlantisIAMRole"
+
+# Repository configuration - allows custom workflows
+repoConfig: |
+  repos:
+    - id: /.*/
+      workflow: default
+      allowed_overrides: ["workflow","apply_requirements","plan_requirements","repo_locking"]
+      allow_custom_workflows: true
+
+# Data persistence for Atlantis workspace
+volumeClaim:
+  enabled: true
+  dataStorage: 100Gi
+
+# Custom Docker image with AI analysis capabilities
+image:
+  repository: "your-account.dkr.ecr.region.amazonaws.com/atlantis-ai"  # Update to your ECR repo
+  tag: "0.35.0-ai.1.0"
+  pullPolicy: Always
+
+# Force Atlantis to listen on 4141 (avoid conflict with OAuth2 proxy on 4180)
+extraArgs:
+  - --port=4141
+
+# OAuth2 Proxy sidecar for SSO protection
+extraContainers:
+  - name: oauth2-proxy
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    imagePullPolicy: IfNotPresent
+    args:
+      - --provider=oidc  # Change based on your SSO provider
+      - --http-address=0.0.0.0:4180
+      - --upstream=http://127.0.0.1:4141
+      - --redirect-url=https://atlantis.your-domain.com/oauth2/callback
+      - --oidc-issuer-url=https://your-sso-provider.com  # Update for your SSO
+      - --email-domain=your-domain.com
+      - --scope=openid profile email offline_access
+      - --set-authorization-header=true
+      - --pass-user-headers=true
+      - --cookie-secure=true
+      - --cookie-samesite=lax
+      - --whitelist-domain=.your-domain.com
+      - --skip-auth-route=^/(events|healthz|ping)(?:$|/).*
+    env:
+      - name: OAUTH2_PROXY_CLIENT_ID
+        valueFrom:
+          secretKeyRef:
+            name: atlantis-oauth2
+            key: client-id
+      - name: OAUTH2_PROXY_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: atlantis-oauth2
+            key: client-secret
+      - name: OAUTH2_PROXY_COOKIE_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: atlantis-oauth2
+            key: cookie-secret
+    ports:
+      - name: http-oauth2
+        containerPort: 4180
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+# Atlantis server configuration
+config: |
+  ---
+  # Optional: Slack webhooks for notifications
+  # webhooks:
+  #  - event: apply
+  #    workspace-regex: .*
+  #    branch-regex: .*
+  #    kind: slack
+  #    channel: your-slack-channel
+
+# Default Terraform version (should match Dockerfile)
+defaultTFVersion: 1.8.3
+
+# Environment variables for Atlantis
+environment:
+  ATLANTIS_ALLOW_DRAFT_PRS: true
+  # AWS Bedrock configuration for AI analysis
+  AWS_REGION: us-east-1
+  BEDROCK_MODEL_ID: "anthropic.claude-sonnet-4-20250514-v1:0"
+  # Optional: Use inference profiles for cost optimization
+  # BEDROCK_INFERENCE_PROFILE_ARN: "arn:aws:bedrock:region:account:application-inference-profile/profile-id"
+  # Repository configuration
+  BASE_REPO_OWNER: "your-org"
+  BASE_REPO_NAME: "your-terraform-repo"
+
+# Resource requirements
+resources:
+  requests:
+    cpu: 1
+    memory: 2Gi
+  limits:
+    cpu: 2
+    memory: 4Gi
+
+# Node selection and tolerations (optional)
+# nodeSelector:
+#   role: "atlantis"
+# tolerations:
+# - key: "role"
+#   value: "atlantis"
+#   operator: "Equal"
+#   effect: "NoSchedule"

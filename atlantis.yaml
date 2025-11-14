@@ -1,0 +1,45 @@
+version: 3
+automerge: false
+delete_source_branch_on_merge: true
+parallel_plan: true
+parallel_apply: true
+abort_on_execution_order_fail: true
+
+projects:
+  - name: example-infrastructure
+    branch: /.*/
+    dir: ./terraform/environments/dev
+    workspace: dev    
+    repo_locking: true
+    autoplan:
+      when_modified: ["*.tf", "../modules/**/*.tf"]
+      enabled: true
+    apply_requirements: []
+    workflow: ai-analysis-workflow
+
+workflows:
+  ai-analysis-workflow:
+    plan:
+      steps:
+        - env:
+            name: TF_PLUGIN_CACHE_DIR
+            value: "/atlantis-data/workspace/dev/.terraform.d/plugin-cache"
+        - run: echo "🚀 Running Terraform plan with AI analysis..."
+        - init
+        - plan:
+            extra_args: ["-lock=true"]
+        - run: |
+            PLAN_FILE=$(find . -name "*.tfplan" -type f | head -1)
+            if [ -n "$PLAN_FILE" ]; then
+              echo "🤖 Analyzing plan with AI..."
+              python3 /scripts/ai_analyzer.py "$PLAN_FILE"
+            else
+              echo "❌ No plan file found for AI analysis"
+            fi
+    apply:
+      steps:
+        - env:
+            name: TF_PLUGIN_CACHE_DIR
+            value: "/atlantis-data/workspace/dev/.terraform.d/plugin-cache"
+        - run: echo "🚀 Applying Terraform changes..."
+        - apply

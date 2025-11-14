@@ -1,0 +1,52 @@
+# Azure AD SSO Configuration for Atlantis
+# This example shows how to configure Atlantis with Azure Active Directory SSO
+
+# OAuth2 Proxy configuration for Azure AD
+extraContainers:
+  - name: oauth2-proxy
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    imagePullPolicy: IfNotPresent
+    args:
+      - --provider=oidc
+      - --http-address=0.0.0.0:4180
+      - --upstream=http://127.0.0.1:4141
+      - --redirect-url=https://atlantis.your-domain.com/oauth2/callback
+      # Azure AD v2.0 endpoint
+      - --oidc-issuer-url=https://login.microsoftonline.com/YOUR-TENANT-ID/v2.0
+      - --email-domain=your-domain.com  # Your organization's email domain
+      - --scope=openid profile email offline_access
+      - --set-authorization-header=true
+      - --pass-user-headers=true
+      - --cookie-secure=true
+      - --cookie-samesite=lax
+      - --whitelist-domain=.your-domain.com
+      - --skip-auth-route=^/(events|healthz|ping)(?:$|/).*
+      # Azure AD specific
+      - --oidc-groups-claim=groups
+      - --allowed-group=your-devops-group-id  # Optional: restrict to specific group
+    env:
+      - name: OAUTH2_PROXY_CLIENT_ID
+        valueFrom:
+          secretKeyRef:
+            name: atlantis-oauth2
+            key: azure-client-id
+      - name: OAUTH2_PROXY_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: atlantis-oauth2
+            key: azure-client-secret
+      - name: OAUTH2_PROXY_COOKIE_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: atlantis-oauth2
+            key: cookie-secret
+    ports:
+      - name: http-oauth2
+        containerPort: 4180
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi

@@ -1,0 +1,73 @@
+# AWS Bedrock Configuration for Atlantis AI Analysis
+# This example shows Bedrock-specific configuration options
+
+# Custom Docker image with AI capabilities
+image:
+  repository: "your-account.dkr.ecr.us-east-1.amazonaws.com/atlantis-ai"
+  tag: "0.35.0-ai.1.0"
+  pullPolicy: Always
+
+# Service Account with IAM role for Bedrock access
+serviceAccount:
+  create: true
+  mount: true
+  name: atlantis
+  annotations:
+    # IRSA (IAM Roles for Service Accounts)
+    eks.amazonaws.com/role-arn: "arn:aws:iam::YOUR-ACCOUNT:role/AtlantisBedrockRole"
+
+# Environment variables for Bedrock AI analysis
+environment:
+  ATLANTIS_ALLOW_DRAFT_PRS: true
+  
+  # AWS Configuration
+  AWS_REGION: us-east-1
+  AWS_DEFAULT_REGION: us-east-1
+  
+  # Bedrock Model Configuration
+  BEDROCK_MODEL_ID: "anthropic.claude-sonnet-4-20250514-v1:0"
+  
+  # Cost Optimization (optional)
+  # BEDROCK_INFERENCE_PROFILE_ARN: "arn:aws:bedrock:us-east-1:YOUR-ACCOUNT:application-inference-profile/your-profile-id"
+  # BEDROCK_INFERENCE_PROFILE_ID: "your-profile-id"
+  
+  # Repository Configuration
+  BASE_REPO_OWNER: "your-org"
+  BASE_REPO_NAME: "your-terraform-repo"
+  BASE_BRANCH: "main"
+  
+  # Optional: Enable detailed logging
+  # PYTHONUNBUFFERED: "1"
+  # LOG_LEVEL: "debug"
+
+# Resource requirements for AI workloads
+resources:
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+
+# Additional volumes for AWS credentials (if not using IRSA)
+# extraVolumes:
+#   - name: aws-credentials
+#     secret:
+#       secretName: atlantis-aws-credentials
+#       optional: true
+
+# extraVolumeMounts:
+#   - name: aws-credentials
+#     mountPath: /home/atlantis/.aws
+#     readOnly: true
+
+# Node selector for GPU instances (if using GPU-optimized models in future)
+# nodeSelector:
+#   node.kubernetes.io/instance-type: "p3.2xlarge"
+
+# Tolerations for dedicated AI nodes
+# tolerations:
+#   - key: "workload"
+#     value: "ai"
+#     operator: "Equal"
+#     effect: "NoSchedule"
